@@ -37,7 +37,7 @@ def getInvariantName(host):
     :return:
     '''
     tail = host.address.split(':')[-1]
-    name = 'mote-{0}'.format(tail)
+    return 'mote-{0}'.format(tail)
 
 class ValueCollector(object):
     '''
@@ -96,7 +96,9 @@ class ValueCollector(object):
                     resource.resultCode  = ServerResponseCode.InternalServerError
             else:
                 log.info('/dh/lo: Found host {0}'.format(host.name))
-            
+                # Queue up Observe registration
+                Timer(2, self._startObserve, [resource.sourceAddress]).start()
+
         else:
             log.warn('Unknown path: {0}'.format(resource.path))
             resource.resultClass = CodeClass.ClientError
@@ -111,7 +113,7 @@ class ValueCollector(object):
         '''
         host = Host()
         host.address = resource.sourceAddress[0]
-        host.name    = getInvariantName(host)    # requires ipAddress
+        host.name    = getInvariantName(host)    # requires address
 
         return host
 
@@ -149,8 +151,9 @@ class ValueCollector(object):
             msg.token[1]    = random.randint(0, 255)
 
             # create client
-            self._coapClient = CoapClient(sourcePort=self._sourcePort, dest=hostTuple)
-            self._coapClient.registerForResponse(self._observeTemp)
+            if not self._coapClient:
+                self._coapClient = CoapClient(sourcePort=self._sourcePort, dest=hostTuple)
+                self._coapClient.registerForResponse(self._observeTemp)
 
             # send message
             log.debug('Sending query')
@@ -164,8 +167,8 @@ class ValueCollector(object):
 
     def close(self):
         '''Releases resources'''
-        if self._client:
-            self._client.close()
+        if self._coapClient:
+            self._coapClient.close()
 
 
 if __name__ == "__main__":
